@@ -1,6 +1,6 @@
 # NEET Countdown (Android)
 
-A mobile-first NEET countdown and study tracker. It stores data on the device using localStorage and works offline after the first load.
+A mobile-first NEET countdown and study tracker with Supabase accounts, cloud-synced student progress, and a shared Study Lounge. Core app features are designed for mobile use.
 
 ## Build an installable APK using GitHub (phone-friendly)
 1. Create/open a GitHub repository and upload the contents of this folder (not the ZIP itself).
