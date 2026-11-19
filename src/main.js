@@ -104,3 +104,25 @@ async function startAuth(){if(!supabase){showAuth();authMessage('Connect your Su
 $('#app').insertAdjacentHTML('afterbegin','<div class="account-bar"><span id="signed-in-email"></span><button id="sign-out" type="button">Sign out</button></div>');
 $('#sign-out').addEventListener('click',async()=>{if(supabase)await supabase.auth.signOut();authUser=null;showAuth();});
 startAuth();
+
+/* Student Study Lounge: authenticated public study room */
+const lounge = document.createElement('section');
+lounge.id = 'study-lounge';
+lounge.className = 'panel';
+lounge.innerHTML = `
+ <div class="lounge-head"><div><div class="eyebrow">STUDY TOGETHER</div><h2>Student Study Lounge</h2><p class="muted">Ask doubts, share study tips and encourage each other.</p></div><span class="lounge-live">● LIVE ROOM</span></div>
+ <div class="lounge-safety">Use a nickname. Never share phone numbers, addresses, passwords, school IDs or private details. Keep messages respectful. Report anything uncomfortable.</div>
+ <div id="lounge-messages" class="lounge-messages" aria-live="polite"><p class="muted">Connecting to the study room…</p></div>
+ <form id="lounge-form" class="lounge-form"><input id="lounge-input" maxlength="1000" placeholder="Share a doubt or study tip…" autocomplete="off" required><button class="primary" type="submit">Send</button></form>
+ <p id="lounge-status" class="hint">Messages are visible to signed-in students.</p>`;
+$('#app').append(lounge);
+let loungeChannel=null;
+function safeText(s){return String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function drawMessages(rows){const box=$('#lounge-messages');box.innerHTML='';if(!rows?.length){box.innerHTML='<p class="muted">No messages yet. Start with a study question!</p>';return;}for(const m of rows){const item=document.createElement('article');item.className='lounge-message';const who=safeText(m.display_name||'Student'),body=safeText(m.content),when=new Date(m.created_at).toLocaleString();item.innerHTML='<div class="lounge-message-meta"><b>'+who+'</b><time>'+safeText(when)+'</time></div><p>'+body+'</p><button type="button" class="report-message" data-message-id="'+safeText(m.id)+'">Report</button>';box.append(item);}box.scrollTop=box.scrollHeight;}
+async function loadLounge(){if(!supabase||!authUser){$('#lounge-status').textContent='Sign in to join the student study room.';return;}const {data,error}=await supabase.from('chat_messages').select('id,user_id,display_name,content,created_at').order('created_at',{ascending:false}).limit(80);if(error){$('#lounge-status').textContent='Study room database setup is still required.';return;}drawMessages((data||[]).reverse());if(loungeChannel)await supabase.removeChannel(loungeChannel);loungeChannel=supabase.channel('student-study-room').on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages'},payload=>{const box=$('#lounge-messages');const empty=box.querySelector('.muted');if(empty)box.innerHTML='';const m=payload.new;const item=document.createElement('article');item.className='lounge-message';item.innerHTML='<div class="lounge-message-meta"><b>'+safeText(m.display_name||'Student')+'</b><time>'+safeText(new Date(m.created_at).toLocaleString())+'</time></div><p>'+safeText(m.content)+'</p><button type="button" class="report-message" data-message-id="'+safeText(m.id)+'">Report</button>';box.append(item);box.scrollTop=box.scrollHeight;}).subscribe();}
+$('#lounge-form').addEventListener('submit',async e=>{e.preventDefault();const input=$('#lounge-input'),content=input.value.trim();if(!content||!supabase||!authUser)return;const display=(authUser.user_metadata?.display_name||authUser.email?.split('@')[0]||'Student').slice(0,32);$('#lounge-status').textContent='Sending…';const {error}=await supabase.from('chat_messages').insert({user_id:authUser.id,display_name:display,content});if(error){$('#lounge-status').textContent='Could not send. Check the database setup and try again.';}else{input.value='';$('#lounge-status').textContent='Sent. Be kind and keep studying together.';}});
+$('#lounge-messages').addEventListener('click',async e=>{const b=e.target.closest('.report-message');if(!b||!supabase||!authUser)return;const reason=prompt('Why are you reporting this message? (Keep it brief)');if(!reason||!reason.trim())return;const {error}=await supabase.from('chat_reports').insert({message_id:Number(b.dataset.messageId),reporter_id:authUser.id,reason:reason.trim().slice(0,300)});$('#lounge-status').textContent=error?'Could not submit report.':'Report submitted for review. Thank you.';});
+const previousLoadStudentData=loadStudentData;
+loadStudentData=async function(user){await previousLoadStudentData(user);await loadLounge();};
+const previousShowAuth=showAuth;
+showAuth=function(){previousShowAuth();if(loungeChannel&&supabase){supabase.removeChannel(loungeChannel);loungeChannel=null;}};
