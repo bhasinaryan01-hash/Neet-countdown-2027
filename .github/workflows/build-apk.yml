@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run build
+      - name: Build web app\n        run: npm run build\n        env:\n          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}\n          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - run: npx cap add android
       - run: npx cap sync android
       - name: Build debug APK
