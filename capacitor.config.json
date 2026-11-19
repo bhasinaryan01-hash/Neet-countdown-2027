@@ -1,0 +1,6 @@
+{
+  "appId": "com.bhasinaryan.neetcountdown",
+  "appName": "NEET Countdown",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
