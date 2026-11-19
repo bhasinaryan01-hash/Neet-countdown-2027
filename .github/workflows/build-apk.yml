@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - 'downloads/**'
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,3 +33,14 @@ jobs:
           name: NEET-Countdown-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+      - name: Add APK to repository
+        run: |
+          mkdir -p downloads
+          cp android/app/build/outputs/apk/debug/app-debug.apk downloads/NEET-Countdown-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/NEET-Countdown-debug.apk
+          if ! git diff --cached --quiet; then
+            git commit -m "Add latest NEET Countdown debug APK"
+            git push
+          fi
