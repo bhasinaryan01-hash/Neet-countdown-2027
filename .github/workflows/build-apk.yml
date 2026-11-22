@@ -39,6 +39,12 @@ jobs:
           name: NEET-Countdown-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+      - name: Publish APK to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || gh release create latest --title "Latest NEET Countdown APK" --notes "Latest installable Android debug APK. Download NEET-Countdown.apk below."
+          gh release upload latest android/app/build/outputs/apk/debug/app-debug.apk --clobber --name NEET-Countdown.apk
       - name: Add APK to repository
         run: |
           mkdir -p downloads
