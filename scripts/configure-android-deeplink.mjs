@@ -4,7 +4,7 @@ const manifestPath = 'android/app/src/main/AndroidManifest.xml';
 let manifest = await readFile(manifestPath, 'utf8');
 
 if (!manifest.includes('com.bhasinaryan.neetcountdown')) {
-  const activityPattern = /(<activity\\b[^>]*android:name="\\.MainActivity"[\\s\\S]*?>)([\\s\\S]*?)(<\\/activity>)/;
+  const activityPattern = /(<activity\b[^>]*android:name="\.MainActivity"[\s\S]*?>)([\s\S]*?)(<\/activity>)/;
   if (!activityPattern.test(manifest)) {
     throw new Error('Could not find the MainActivity entry in AndroidManifest.xml');
   }
