@@ -1,4 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
@@ -7,7 +9,9 @@ const $ = s => document.querySelector(s);
 const STORE = 'neet-countdown-profiles-v2';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+const NATIVE_AUTH_REDIRECT = 'com.bhasinaryan.neetcountdown://auth/callback';
+const isNativeApp = Capacitor.isNativePlatform();
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, { auth: { flowType: 'pkce', detectSessionInUrl: !isNativeApp } }) : null;
 let authUser = null;
 let authBusy = false;
 const OLD_STORE = 'neet-countdown-v1';
@@ -96,10 +100,30 @@ document.querySelectorAll('.auth-tabs button').forEach(b=>b.addEventListener('cl
 $('#toggle-password').addEventListener('click',()=>{$('#auth-password').type=$('#auth-password').type==='password'?'text':'password';});
 function showApp(){authShell.hidden=true;$('#app').hidden=false;}
 function showAuth(){authShell.hidden=false;$('#app').hidden=true;}
+if (isNativeApp) {
+  App.addListener('appUrlOpen', async ({ url }) => {
+    if (!url || !url.startsWith(NATIVE_AUTH_REDIRECT) || !supabase) return;
+    try {
+      await Browser.close();
+      const callback = new URL(url);
+      const code = callback.searchParams.get('code');
+      if (!code) {
+        authMessage(callback.searchParams.get('error_description') || 'Google sign-in did not return an authorization code.', true);
+        return;
+      }
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) await loadStudentData(data.session.user);
+    } catch (err) {
+      authMessage(err.message || 'Could not complete Google sign-in.', true);
+    }
+  });
+}
 async function loadStudentData(user){authUser=user;const {data,error}=await supabase.from('student_progress').select('data').eq('user_id',user.id).maybeSingle();if(error)console.error('Cloud load failed:',error);if(data?.data){db=data.data;profile=db.profiles.find(p=>p.id===db.activeId)||db.profiles[0];state=profile.state;}else{db={profiles:[{id:'p1',name:'My Profile',state:freshState()}],activeId:'p1'};profile=db.profiles[0];state=profile.state;save();}render();showApp();$('#signed-in-email').textContent=user.email||'Signed in';}
-$('#auth-form').addEventListener('submit',async e=>{e.preventDefault();if(authBusy)return;if(!supabase){authMessage('Supabase setup is not finished. The login design is ready; project configuration is still required.',true);return;}authBusy=true;$('#auth-submit').disabled=true;authMessage(authMode==='signup'?'Creating your account…':'Signing you in…');try{const email=$('#auth-email').value.trim(),password=$('#auth-password').value;let result;if(authMode==='reset'){result=await supabase.auth.updateUser({password});if(result.error)throw result.error;await supabase.auth.signOut();setAuthMode('login');authMessage('Password updated. You can now sign in with your new password.');}else if(authMode==='signup'){result=await supabase.auth.signUp({email,password,options:{data:{display_name:$('#auth-name').value.trim()},emailRedirectTo:location.origin}});if(result.error)throw result.error;if(result.data.session){await loadStudentData(result.data.user);}else authMessage('Account created! Check your email to verify your address, then sign in.');}else{result=await supabase.auth.signInWithPassword({email,password});if(result.error)throw result.error;await loadStudentData(result.data.user);}}catch(err){authMessage(err.message||'Something went wrong. Please try again.',true);}finally{authBusy=false;$('#auth-submit').disabled=false;}});
-$('#forgot-password').addEventListener('click',async()=>{if(!supabase){authMessage('Supabase setup is not finished yet.',true);return;}const email=$('#auth-email').value.trim();if(!email){authMessage('Enter your email address first.',true);return;}const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:location.origin});authMessage(error?error.message:'If an account exists for this email, a password reset link has been sent.');});
-$('#google-auth').addEventListener('click',async()=>{if(!supabase){authMessage('Supabase setup is not finished yet.',true);return;}const {error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}});if(error)authMessage(error.message,true);});
+$('#auth-form').addEventListener('submit',async e=>{e.preventDefault();if(authBusy)return;if(!supabase){authMessage('Supabase setup is not finished. The login design is ready; project configuration is still required.',true);return;}authBusy=true;$('#auth-submit').disabled=true;authMessage(authMode==='signup'?'Creating your account…':'Signing you in…');try{const email=$('#auth-email').value.trim(),password=$('#auth-password').value;let result;if(authMode==='reset'){result=await supabase.auth.updateUser({password});if(result.error)throw result.error;await supabase.auth.signOut();setAuthMode('login');authMessage('Password updated. You can now sign in with your new password.');}else if(authMode==='signup'){result=await supabase.auth.signUp({email,password,options:{data:{display_name:$('#auth-name').value.trim()},emailRedirectTo:isNativeApp?NATIVE_AUTH_REDIRECT:location.origin}});if(result.error)throw result.error;if(result.data.session){await loadStudentData(result.data.user);}else authMessage('Account created! Check your email to verify your address, then sign in.');}else{result=await supabase.auth.signInWithPassword({email,password});if(result.error)throw result.error;await loadStudentData(result.data.user);}}catch(err){authMessage(err.message||'Something went wrong. Please try again.',true);}finally{authBusy=false;$('#auth-submit').disabled=false;}});
+$('#forgot-password').addEventListener('click',async()=>{if(!supabase){authMessage('Supabase setup is not finished yet.',true);return;}const email=$('#auth-email').value.trim();if(!email){authMessage('Enter your email address first.',true);return;}const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:isNativeApp?NATIVE_AUTH_REDIRECT:location.origin});authMessage(error?error.message:'If an account exists for this email, a password reset link has been sent.');});
+$('#google-auth').addEventListener('click',async()=>{if(!supabase){authMessage('Supabase setup is not finished yet.',true);return;}try{const {data,error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:isNativeApp?NATIVE_AUTH_REDIRECT:location.origin,skipBrowserRedirect:isNativeApp}});if(error)throw error;if(isNativeApp&&data?.url)await Browser.open({url:data.url});}catch(err){authMessage(err.message||'Google sign-in could not start.',true);}});
 async function startAuth(){if(!supabase){showAuth();authMessage('Connect your Supabase project to activate sign-in. Add the project URL and publishable key to GitHub Actions secrets.',true);return;}const {data:{session}}=await supabase.auth.getSession();if(session?.user)await loadStudentData(session.user);else showAuth();supabase.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){authUser=null;showAuth();}else if(event==='PASSWORD_RECOVERY'){showAuth();setAuthMode('reset');authMessage('Enter a new password for your account.');}});}
 $('#app').insertAdjacentHTML('afterbegin','<div class="account-bar"><span id="signed-in-email"></span><button id="sign-out" type="button">Sign out</button></div>');
 $('#sign-out').addEventListener('click',async()=>{if(supabase)await supabase.auth.signOut();authUser=null;showAuth();});
