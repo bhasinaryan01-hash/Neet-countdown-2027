@@ -1,5 +1,9 @@
 # NEET Countdown (Android)
 
+> **[⬇️ Download the latest Android APK](https://github.com/bhasinaryan01-hash/Neet-countdown-2027/releases/latest/download/NEET-Countdown.apk)**
+>
+> Or open the [Releases page](https://github.com/bhasinaryan01-hash/Neet-countdown-2027/releases) to find the latest build. On Android, download the APK and tap it to install.
+
 A mobile-first NEET countdown and study tracker with Supabase accounts, cloud-synced student progress, and a shared Study Lounge. Core app features are designed for mobile use.
 
 ## Supabase setup
