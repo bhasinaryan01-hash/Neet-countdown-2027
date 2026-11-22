@@ -29,10 +29,14 @@ jobs:
       - name: Generate premium Android app icons
         run: node scripts/generate-icons.mjs
       - run: npx cap sync android
-      - name: Build debug APK
+      - name: Print Android signing fingerprints
         run: |
           cd android
           chmod +x gradlew
+          ./gradlew signingReport
+      - name: Build debug APK
+        run: |
+          cd android
           ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
