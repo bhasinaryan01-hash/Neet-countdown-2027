@@ -26,6 +26,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - run: npx cap add android
+      - name: Configure Android OAuth deep link
+        run: node scripts/configure-android-deeplink.mjs
       - name: Generate premium Android app icons
         run: node scripts/generate-icons.mjs
       - run: npx cap sync android
